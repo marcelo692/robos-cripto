@@ -1,7 +1,7 @@
 // Investigador do Passado — testa milhares de regras de operação curta em 6 anos de história (modo de mentira)
 const http = require("http"), fs = require("fs"), path = require("path");
 const { exec } = require("child_process");
-const VERSAO = "2026-11-09.1";
+const VERSAO = "2026-11-09.2";
 const PASTA = __dirname, PORTA = 4703;
 const DADOS = path.join(PASTA, "dados"), ARQ_RES = path.join(PASTA, "investigador-resultado.json");
 const FAKE = process.env.INV_FAKE === "1";
@@ -248,6 +248,15 @@ async function velasVivas(par) {
   } throw erro;
 }
 function velasFalsas(par) { const d = falso(par, PARES.indexOf(par)); const n = d.c.length, a = n - 1000; return { t: d.t.slice(a), o: d.o.slice(a), h: d.h.slice(a), l: d.l.slice(a), c: d.c.slice(a) }; }
+const velasCache = {};
+async function velasGrafico(par, tf) {
+  tf = ["5m", "15m", "1h"].includes(tf) ? tf : "1h"; par = PARES.includes(par) ? par : "BTC"; const k = par + tf, ag = Date.now();
+  if (velasCache[k] && ag - velasCache[k].em < 8000) return velasCache[k].v;
+  let v;
+  if (FAKE) { const d = falso(par, PARES.indexOf(par)), n = d.t.length; v = d.t.slice(n - 150).map((t, i) => ({ t, o: d.o[n - 150 + i], h: d.h[n - 150 + i], l: d.l[n - 150 + i], c: d.c[n - 150 + i] })); }
+  else { const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${par}USDT&interval=${tf}&limit=150`, { signal: AbortSignal.timeout(15000) }); if (!r.ok) throw new Error("HTTP " + r.status); v = (await r.json()).map((a) => ({ t: a[0], o: +a[1], h: +a[2], l: +a[3], c: +a[4] })); }
+  velasCache[k] = { em: ag, v }; return v;
+}
 function simValor() { let v = sim.caixa; for (const p of sim.abertas) v += p.valor * (sim.px[p.par] / p.entrada); return v; }
 async function simCiclo() {
   if (!sim || !sim.ativo) return;
@@ -256,7 +265,7 @@ async function simCiclo() {
     for (const par of PARES) {
       let d; try { d = FAKE ? velasFalsas(par) : await velasVivas(par); } catch (e) { sim.erro = `${par}: ${e.message}`; continue; }
       sim.erro = null; const x = preparar(d), n = x.n, forma = FAKE || d.t[n - 1] + HORA > agora, c = forma ? n - 2 : n - 1;
-      sim.px[par] = d.c[n - 1]; if (!sim.base[par]) sim.base[par] = d.c[n - 1];
+      sim.px[par] = d.c[n - 1]; sim.pares = sim.pares || {}; sim.pares[par] = { preco: d.c[n - 1], sinal: c >= 800 ? !!sinal(g, x)(c) : false, em: agora }; if (!sim.base[par]) sim.base[par] = d.c[n - 1];
       // saídas
       for (const p of sim.abertas.filter((q) => q.par === par)) {
         const k0 = d.t.indexOf(p.tEnt); let saiu = null;
@@ -266,7 +275,7 @@ async function simCiclo() {
           else if (g.tp && d.h[k] >= p.entrada * (1 + g.tp)) saiu = { preco: Math.max(d.o[k], p.entrada * (1 + g.tp)), motivo: "alvo" };
           else if (k >= k0 + g.H - 1 && k <= c) saiu = { preco: d.c[k], motivo: "tempo" };
         }
-        if (saiu) { const rec = p.valor * (saiu.preco / p.entrada) * (1 - FE); sim.caixa += rec; sim.abertas = sim.abertas.filter((q) => q !== p); sim.hist.unshift({ par, quando: agora, entrada: p.entrada, saida: saiu.preco, ret: rec / p.custo - 1, lucro: rec - p.custo, motivo: saiu.motivo }); sim.hist = sim.hist.slice(0, 300); sim.nOps++; if (rec > p.custo) sim.nWin++; }
+        if (saiu) { const rec = p.valor * (saiu.preco / p.entrada) * (1 - FE); sim.caixa += rec; sim.abertas = sim.abertas.filter((q) => q !== p); sim.hist.unshift({ par, tEnt: p.tEnt, quando: agora, entrada: p.entrada, saida: saiu.preco, ret: rec / p.custo - 1, lucro: rec - p.custo, motivo: saiu.motivo }); sim.hist = sim.hist.slice(0, 300); sim.nOps++; if (rec > p.custo) sim.nWin++; }
       }
       // entrada
       if (c >= 800 && forma && (sim.visto[par] || 0) < d.t[c] && !sim.abertas.some((q) => q.par === par)) {
@@ -278,7 +287,7 @@ async function simCiclo() {
     simSalvar();
   } catch (e) { sim.erro = e.message; }
 }
-function simLigar() { clearInterval(simTimer); simTimer = setInterval(simCiclo, 60e3); simCiclo(); }
+function simLigar() { clearInterval(simTimer); simTimer = setInterval(simCiclo, 20e3); simCiclo(); }
 function simIniciar(valor, g, fracPct) {
   const frac = Math.min(1, Math.max(0.05, fracPct / 100));
   sim = { ativo: true, inicio: Date.now(), valor0: valor, caixa: valor, g, desc: descrever(g), frac, K: Math.max(1, Math.round(1 / frac)), abertas: [], hist: [], nOps: 0, nWin: 0, px: {}, base: {}, visto: {}, pts: [[Date.now(), valor]], erro: null };
@@ -329,6 +338,7 @@ const servidor = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/testar") { const b = await corpo(req); try { const X = await dadosMem(); return json(res, carteira(fundir(b.g || {}), X, +b.frac || 100)); } catch (e) { return json(res, { erro: e.message }); } }
     if (req.method === "POST" && req.url === "/atualizar") { try { return json(res, await atualizarDoGithub()); } catch (e) { return json(res, { erro: "Não consegui atualizar: " + e.message }); } }
     if (req.url === "/versao") return json(res, { versao: VERSAO });
+    if (req.url.startsWith("/sim/velas")) { const u = new URL(req.url, "http://x"), par = u.searchParams.get("par"), tf = u.searchParams.get("tf"); try { const v = await velasGrafico(par, tf); const m = { compras: [], vendas: [], abertas: [] }; if (sim) { for (const p of sim.abertas) if (p.par === par) m.abertas.push({ t: p.tEnt, entrada: p.entrada, stop: sim.g.s ? p.entrada * (1 - sim.g.s) : 0, alvo: sim.g.tp ? p.entrada * (1 + sim.g.tp) : 0 }); for (const h of sim.hist) if (h.par === par) { m.compras.push({ t: h.tEnt, preco: h.entrada }); m.vendas.push({ t: h.quando, preco: h.saida, ret: h.ret }); } for (const p of sim.abertas) if (p.par === par) m.compras.push({ t: p.tEnt, preco: p.entrada }); } return json(res, { par, tf: tf || "1h", velas: v, ...m }); } catch (e) { return json(res, { erro: e.message }); } }
     if (req.url === "/sim/estado") return json(res, simResumo());
     if (req.method === "POST" && req.url === "/sim/iniciar") { const b = await corpo(req), v = +b.valor; if (!(v >= 10)) return json(res, { erro: "Coloque um valor de pelo menos 10." }); simIniciar(v, fundir(b.g || {}), +b.frac || 100); return json(res, { ok: true }); }
     if (req.method === "POST" && req.url === "/sim/parar") { if (sim) { sim.ativo = false; simSalvar(); } clearInterval(simTimer); return json(res, { ok: true }); }

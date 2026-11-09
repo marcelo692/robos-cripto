@@ -34,10 +34,15 @@
   .abas { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:14px; } .abas button.on { background:var(--azul); color:#06121f; }
   .form { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; } .form label { font-size:12px; color:var(--fraco); display:flex; flex-direction:column; gap:4px; }
   .form input, .form select { background:#0f1115; color:var(--texto); border:1px solid var(--borda); border-radius:8px; padding:8px; font-size:14px; }
+  .abas button.on, #graf button.on { background:var(--azul); color:#06121f; } .btnpar { background:rgba(61,220,132,.15); color:var(--verde); }
   #reiniciando { position:fixed; inset:0; background:rgba(0,0,0,.75); display:none; align-items:center; justify-content:center; z-index:99; text-align:center; font-size:18px; }
 </style>
 </head>
 <body>
+<div id="graf" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:90;overflow:auto"><div style="max-width:1000px;margin:20px auto;background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b id="g-tit" style="font-size:18px"></b><div style="display:flex;gap:6px"><button onclick="gTf('5m')" id="gt-5m">5 min</button><button onclick="gTf('15m')" id="gt-15m">15 min</button><button onclick="gTf('1h')" id="gt-1h" class="on">1 hora</button><button onclick="fechaGraf()">✕ Fechar</button></div></div>
+  <div id="g-info" class="dica" style="margin:6px 0"></div><canvas id="g-cv" style="height:420px"></canvas>
+  <div class="dica">▲ verde = onde o robô comprou · ▼ amarelo = onde vendeu · linhas tracejadas = stop (vermelha) e alvo (verde) da posição aberta · atualiza sozinho a cada 10 segundos</div></div></div>
 <div id="reiniciando"><div>🔄 Atualizando o programa…<br><small style="color:#8b919a">a página recarrega sozinha</small></div></div>
 <div class="wrap">
   <div class="topo"><h1>🔎 Investigador do Passado</h1>
@@ -71,6 +76,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const pct = (v, d = 1) => (v >= 0 ? "+" : "−") + Math.abs(v * 100).toFixed(d).replace(".", ",") + "%";
+const fp = (v) => (v < 1 ? v.toFixed(5) : v < 100 ? v.toFixed(3) : v.toFixed(2));
 const cls = (v) => (v > 0.0005 ? "pos" : v < -0.0005 ? "neg" : "neu");
 const NOMES = { queda: "Comprar a queda", rsi: "Comprar o esgotamento", rompe: "Comprar o rompimento", panico: "Comprar o pânico", relogio: "Horário do dia" };
 async function esperarVoltar() {
@@ -222,10 +228,35 @@ async function simAtualizar() {
     <p><b>${s.desc}</b></p>
     <p>Começou com <b>US$ ${s.valor0.toLocaleString("pt-BR")}</b> em ${hora(s.inicio)}. Agora tem <b class="${cls(s.retorno)}">US$ ${s.valorAtual.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</b> (${pct(s.retorno, 2)}), ${s.diasRodando >= 1 ? `média de <b class="${cls(s.porDia)}">${pct(s.porDia, 2)} por dia</b> em ${s.diasRodando.toFixed(1).replace(".", ",")} dias.` : "rodando há menos de 1 dia; a média por dia aparece depois do primeiro dia."} Só segurar as moedas teria dado ${pct(s.segurar, 2)}.</p>
     <p class="dica">${s.nOps} operações fechadas, ${s.nOps ? ((s.nWin / s.nOps) * 100).toFixed(0) : 0}% de acerto. Última leitura: ${s.ultimo ? hora(s.ultimo) : "ainda não"}. Cada operação já desconta a taxa de 0,15% na entrada e na saída.</p></div>
-    <div class="card"><h2>Posições abertas (${s.abertasVivas.length})</h2>${s.abertasVivas.length ? `<table><thead><tr><th>Moeda</th><th class="n">Entrada</th><th class="n">Agora</th><th class="n">Resultado</th></tr></thead><tbody>${s.abertasVivas.map((p) => `<tr><td>${p.par} <span class="dica">desde ${hora(p.quando)}</span></td><td class="n">${p.entrada}</td><td class="n">${p.atual}</td><td class="n ${cls(p.ret)}">${pct(p.ret, 2)}</td></tr>`).join("")}</tbody></table>` : '<p class="dica">Nenhuma posição agora. Ele espera a regra mandar comprar.</p>'}</div>
-    <div class="card"><h2>Últimas operações</h2>${s.hist.length ? `<table><thead><tr><th>Moeda</th><th>Quando saiu</th><th>Motivo</th><th class="n">Resultado</th><th class="n">Lucro (US$)</th></tr></thead><tbody>${s.hist.slice(0, 30).map((h) => `<tr><td>${h.par}</td><td>${hora(h.quando)}</td><td>${h.motivo}</td><td class="n ${cls(h.ret)}">${pct(h.ret, 2)}</td><td class="n ${cls(h.lucro)}">${h.lucro.toFixed(2)}</td></tr>`).join("")}</tbody></table>` : '<p class="dica">Ainda sem operações fechadas.</p>'}</div>`;
+    <div class="card"><h2>Moedas que o robô está olhando (atualiza a cada 5 s)</h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${Object.entries(s.pares || {}).map(([par, v]) => { const ab = s.abertasVivas.find((p) => p.par === par); return `<button class="${ab ? "btnpar" : ""}" onclick="abrirGraf('${par}')" title="Abrir o gráfico de velas">${ab ? "🟢 COMPRADO · " : ""}${par} ${v.preco < 1 ? v.preco.toFixed(5) : v.preco.toFixed(2)} ${v.sinal ? "· sinal ativo" : ""} 📈</button>`; }).join("") || '<span class="dica">Aguardando a primeira leitura…</span>'}</div>
+      <div class="dica" style="margin-top:6px">Verde = o robô está com essa moeda comprada agora. Clique em qualquer uma para ver as velas.</div></div>
+    <div class="card"><h2>Posições abertas (${s.abertasVivas.length})</h2>${s.abertasVivas.length ? `<table><thead><tr><th>Moeda</th><th class="n">Entrada</th><th class="n">Agora</th><th class="n">Resultado</th><th></th></tr></thead><tbody>${s.abertasVivas.map((p) => `<tr><td>${p.par} <span class="dica">desde ${hora(p.quando)}</span></td><td class="n">${fp(p.entrada)}</td><td class="n">${fp(p.atual)}</td><td class="n ${cls(p.ret)}">${pct(p.ret, 2)}</td><td class="n"><button onclick="abrirGraf('${p.par}')">📈 Ver gráfico</button></td></tr>`).join("")}</tbody></table>` : '<p class="dica">Nenhuma posição agora. Ele espera a regra mandar comprar.</p>'}</div>
+    <div class="card"><h2>Últimas operações</h2>${s.hist.length ? `<table><thead><tr><th>Moeda</th><th>Quando saiu</th><th>Motivo</th><th class="n">Resultado</th><th class="n">Lucro (US$)</th><th></th></tr></thead><tbody>${s.hist.slice(0, 30).map((h) => `<tr><td>${h.par}</td><td>${hora(h.quando)}</td><td>${h.motivo}</td><td class="n ${cls(h.ret)}">${pct(h.ret, 2)}</td><td class="n ${cls(h.lucro)}">${h.lucro.toFixed(2)}</td><td class="n"><button onclick="abrirGraf('${h.par}')">📈</button></td></tr>`).join("")}</tbody></table>` : '<p class="dica">Ainda sem operações fechadas.</p>'}</div>`;
 }
-setInterval(() => { if ($("aba-sim").style.display !== "none") simAtualizar(); }, 15000);
+// ---------- gráfico de velas ----------
+let GP = null, GTF = "1h", GT = null;
+function abrirGraf(par) { GP = par; $("graf").style.display = "block"; gTf(GTF); }
+function fechaGraf() { $("graf").style.display = "none"; GP = null; clearInterval(GT); }
+function gTf(tf) { GTF = tf; for (const x of ["5m", "15m", "1h"]) $("gt-" + x).className = x === tf ? "on" : ""; desenhaGraf(); clearInterval(GT); GT = setInterval(desenhaGraf, 10000); }
+async function desenhaGraf() {
+  if (!GP) return; let d; try { d = await (await fetch(`/sim/velas?par=${GP}&tf=${GTF}`)).json(); } catch (e) { return; }
+  if (d.erro) { $("g-info").textContent = d.erro; return; }
+  const v = d.velas, cv = $("g-cv"), w = (cv.width = cv.clientWidth * 2), h = (cv.height = 840), g = cv.getContext("2d");
+  const hi = Math.max(...v.map((x) => x.h)), lo = Math.min(...v.map((x) => x.l)), pad = (hi - lo) * 0.06, top = hi + pad, bot = lo - pad;
+  const X = (i) => 20 + (i + 0.5) * ((w - 150) / v.length), Y = (p) => 20 + ((top - p) / (top - bot)) * (h - 60), cw = Math.max(3, ((w - 150) / v.length) * 0.65);
+  g.fillStyle = "#0f1115"; g.fillRect(0, 0, w, h); g.font = "22px system-ui"; g.fillStyle = "#8b919a"; g.strokeStyle = "#262a31"; g.lineWidth = 1;
+  for (let k = 0; k <= 5; k++) { const p = bot + ((top - bot) * k) / 5; g.beginPath(); g.moveTo(0, Y(p)); g.lineTo(w - 125, Y(p)); g.stroke(); g.fillText(p < 1 ? p.toFixed(5) : p.toFixed(2), w - 120, Y(p) + 7); }
+  v.forEach((c, i) => { const cor = c.c >= c.o ? "#3ddc84" : "#ff5c5c"; g.strokeStyle = cor; g.fillStyle = cor; g.lineWidth = 2; g.beginPath(); g.moveTo(X(i), Y(c.h)); g.lineTo(X(i), Y(c.l)); g.stroke(); g.fillRect(X(i) - cw / 2, Math.min(Y(c.o), Y(c.c)), cw, Math.max(2, Math.abs(Y(c.o) - Y(c.c)))); });
+  const idx = (t) => { let k = -1; v.forEach((c, i) => { if (c.t <= t) k = i; }); return k; };
+  const marca = (t, p, tipo, cor) => { const i = idx(t); if (i < 0 || t < v[0].t - 3600e3) return; g.fillStyle = cor; g.beginPath(); const x = X(i), y = Y(p); if (tipo === "c") { g.moveTo(x, y + 6); g.lineTo(x - 14, y + 32); g.lineTo(x + 14, y + 32); } else { g.moveTo(x, y - 6); g.lineTo(x - 14, y - 32); g.lineTo(x + 14, y - 32); } g.fill(); };
+  d.compras.forEach((m) => marca(m.t, m.preco, "c", "#3ddc84")); d.vendas.forEach((m) => marca(m.t, m.preco, "v", "#ffc857"));
+  d.abertas.forEach((m) => { g.setLineDash([10, 8]); g.lineWidth = 2; for (const [p, cor] of [[m.stop, "#ff5c5c"], [m.alvo, "#3ddc84"], [m.entrada, "#6cb6ff"]]) if (p) { g.strokeStyle = cor; g.beginPath(); g.moveTo(0, Y(p)); g.lineTo(w - 125, Y(p)); g.stroke(); } g.setLineDash([]); });
+  const ult = v[v.length - 1]; g.strokeStyle = "#e8eaed"; g.setLineDash([4, 6]); g.beginPath(); g.moveTo(0, Y(ult.c)); g.lineTo(w - 125, Y(ult.c)); g.stroke(); g.setLineDash([]); g.fillStyle = "#e8eaed"; g.fillText(ult.c < 1 ? ult.c.toFixed(5) : ult.c.toFixed(2), w - 120, Y(ult.c) - 6);
+  $("g-tit").textContent = d.par + " / USDT";
+  $("g-info").textContent = `Preço agora ${fp(ult.c)} · ${d.abertas.length ? "🟢 o robô está COMPRADO nesta moeda (entrada " + fp(d.abertas[0].entrada) + ")" : "o robô não está com esta moeda agora"} · ${d.compras.length} compra(s) e ${d.vendas.length} venda(s) na simulação · atualizado ${new Date().toLocaleTimeString("pt-BR")}`;
+}
+setInterval(() => { if ($("aba-sim").style.display !== "none") simAtualizar(); }, 5000);
 montarForm(); carregar(); acompanhar();
 </script>
 </body>
