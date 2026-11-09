@@ -1,7 +1,7 @@
 // Investigador do Passado — testa milhares de regras de operação curta em 6 anos de história (modo de mentira)
 const http = require("http"), fs = require("fs"), path = require("path");
 const { exec } = require("child_process");
-const VERSAO = "2026-11-09.2";
+const VERSAO = "2026-11-09.3";
 const PASTA = __dirname, PORTA = 4703;
 const DADOS = path.join(PASTA, "dados"), ARQ_RES = path.join(PASTA, "investigador-resultado.json");
 const FAKE = process.env.INV_FAKE === "1";
@@ -157,6 +157,24 @@ function diario(g, X) { // blocos de 30 dias seguidos, carteira dividida entre a
   const blocos = []; for (let s = 0; s + JAN <= ND; s += JAN) { let t = 0; for (let k = s; k < s + JAN; k++) t += dia[k]; blocos.push([INICIO + s * DIA, t]); }
   return blocos;
 }
+const BICHOS = ["Raposa", "Lobo", "Falcão", "Pantera", "Tubarão", "Coruja", "Jacaré", "Urso", "Tigre", "Águia", "Cobra", "Leão"];
+function nomear(g, frac) {
+  const h = [...JSON.stringify(g)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7), b = BICHOS[h % BICHOS.length];
+  const base = { queda: `Queda ${Math.round(g.x * 100)}% em ${g.N}h`, rsi: `RSI abaixo de ${g.L}`, rompe: `Rompe máxima de ${g.N >= 168 ? g.N / 24 + "d" : g.N + "h"}`, panico: `Pânico ${g.k}×`, relogio: `Relógio ${g.hr}h${g.dw >= 0 ? " dia " + g.dw : ""}` }[g.fam];
+  return `${b} · ${base} · sai em ${g.H}h · ${frac}% por vez`;
+}
+function cenarios(X, todos, porMeta, consist, sobrev) {
+  const lista = [], vistos = new Set();
+  const add = (tipo, t, fracs) => { if (!t) return; let melhor = null; for (const f of fracs) { const c = carteira(t.g, X, f); if (!melhor || c.final > melhor.final) melhor = c; } const k = JSON.stringify([t.g, melhor.fracPct]); if (vistos.has(k)) return; vistos.add(k);
+    const { pts, bh, blocos, ...res } = melhor; lista.push({ tipo, nome: nomear(t.g, melhor.fracPct), ...res }); };
+  const top = todos.filter((t) => t.nT + t.nP >= 150).sort((a, b) => (b.sT + b.sP) - (a.sT + a.sP)).slice(0, 25);
+  let best = null; for (const t of top) for (const f of [100, 50]) { const c = carteira(t.g, X, f); if (!best || c.final > best.c.final) best = { t, c, f }; }
+  if (best) add("🏆 Melhor cenário imaginável (olhando o passado)", best.t, [best.f]);
+  add("🛡 Mais constante (lucro em mais períodos de 30 dias)", consist[0], [100, 50]);
+  add("🎯 Mais vezes na meta de 1% por dia", porMeta[0], [100, 50]);
+  add("✅ Melhor sobrevivente (lucro no treino e na prova)", sobrev[0], [100, 50]);
+  return lista;
+}
 function montar(X, todos, total, segurar, aT, aP, NA) {
   const lim = (t) => ({ g: t.g, desc: descrever(t.g), treino: t.treino, prova: t.prova, nT: t.nT, nP: t.nP, anos: t.soma.map((s, a) => { const nn = t.cnt[a]; return nn ? { ret: s, ops: nn, acerto: t.win[a] / nn } : null; }), media: (t.sT + t.sP) / (aT + aP), j: t.j, jT: t.jT, jP: t.jP, opsMedia: (t.nT + t.nP) / (aT + aP) });
   const pos = todos.filter((t) => t.nT >= 150 && t.nP >= 80);
@@ -181,8 +199,9 @@ function montar(X, todos, total, segurar, aT, aP, NA) {
     qtdSempre: ok.filter((t) => t.j.pPos >= 0.999).length, qtdMeta50: ok.filter((t) => t.j.pMeta >= 0.5).length,
     porMeta: porMeta.map(lim), consist: consist.map(lim), topMeta: porMeta[0] ? comBlocos(porMeta[0]) : null, topConsist: consist[0] ? comBlocos(consist[0]) : null,
   };
+  const cen = cenarios(X, todos, porMeta, consist, sobrev);
   return {
-    meta30, quando: new Date().toISOString(), pares: X.map((x) => ({ par: x.par, desde: x.t[0], velas: x.n })), segurar, anoIni: 2020, estat,
+    cenarios: cen, meta30, quando: new Date().toISOString(), pares: X.map((x) => ({ par: x.par, desde: x.t[0], velas: x.n })), segurar, anoIni: 2020, estat,
     hindsight: melhorTotal ? gl(melhorTotal) : null,
     honestos: sobrev.slice(0, 12).map(lim), honestoTop: sobrev[0] ? gl(sobrev[0]) : null,
     porFamilia: ["queda", "rsi", "rompe", "panico", "relogio"].map((f) => { const a = todos.filter((t) => t.g.fam === f); return { fam: f, n: a.length, treino: media(a, "treino"), prova: media(a, "prova"), ambos: a.filter((t) => t.treino > 0 && t.prova > 0).length }; }),

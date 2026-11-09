@@ -60,6 +60,7 @@
   </div>
 
   <div id="aba-exp" style="display:none">
+    <div id="cenarios"></div>
     <div class="card"><p style="margin:0 0 10px">Aqui você <b>monta uma regra</b> mexendo nas variáveis e vê, mês a mês desde 2020, quanto ela teria rendido. Primeiro rode a aba <b>Investigar</b> uma vez para baixar o histórico.</p>
       <div class="form" id="form"></div>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="grande" onclick="testar()">🧪 Testar esta regra</button><span class="dica" id="exp-st"></span></div></div>
@@ -93,11 +94,11 @@ async function atualizarPrograma() {
   if (q.erro) { alert(q.erro); return; }
   esperarVoltar();
 }
-async function iniciar() { $("go").disabled = true; await fetch("/iniciar", { method: "POST" }); acompanhar(); }
+async function iniciar() { window.RODEI = true; $("go").disabled = true; await fetch("/iniciar", { method: "POST" }); acompanhar(); }
 async function acompanhar() {
   const s = await (await fetch("/status")).json();
   $("prog").style.display = s.fase === "parado" ? "none" : "block"; $("pb").style.width = s.pct + "%"; $("pt").textContent = s.texto;
-  if (s.rodando) { $("go").disabled = true; setTimeout(acompanhar, 1500); } else { $("go").disabled = false; if (s.fase !== "parado") $("go").textContent = "▶ Investigar de novo"; if (s.fase === "pronto") carregar(); }
+  if (s.rodando) { $("go").disabled = true; setTimeout(acompanhar, 1500); } else { $("go").disabled = false; if (s.fase !== "parado") $("go").textContent = "▶ Investigar de novo"; if (s.fase === "pronto") { carregar().then(() => { if (window.RODEI) { window.RODEI = false; aba("exp"); } }); } }
 }
 function curvaSvg(id, c) {
   const cv = $(id), w = cv.width = cv.clientWidth * 2, h = cv.height = 520, g = cv.getContext("2d");
@@ -165,7 +166,7 @@ function render(d) {
   if (h) curvaSvg("c1", h); if (t) curvaSvg("c2", t);
   if (d.honestos.length) selecionar(0);
 }
-async function carregar() { const d = await (await fetch("/resultado")).json(); if (!d.vazio) render(d); }
+async function carregar() { const d = await (await fetch("/resultado")).json(); if (!d.vazio) { render(d); cenariosHtml(d); } }
 function aba(x) { for (const a of ["inv", "exp", "sim"]) { $("aba-" + a).style.display = a === x ? "block" : "none"; $("t-" + a).className = a === x ? "on" : ""; } if (x === "sim") simAtualizar(); }
 fetch("/versao").then((r) => r.json()).then((v) => ($("ver").textContent = "versão " + v.versao)).catch(() => {});
 // ---------- explorador ----------
@@ -189,6 +190,26 @@ function montarForm() {
   mostrar();
 }
 function mostrar() { const fam = $("f-fam").value; document.querySelectorAll("#form label[data-so]").forEach((l) => { const so = l.dataset.so; l.style.display = !so || so.split(",").includes(fam) ? "" : "none"; }); }
+function setRegra(g, frac) {
+  const set = (k, v) => { const e = $("f-" + k); if (e) e.value = v; };
+  set("fam", g.fam); mostrar(); set("H", g.H); set("s", +(g.s * 100).toFixed(2)); set("tp", +(g.tp * 100).toFixed(2)); set("f", g.f ? 1 : 0); set("frac", frac);
+  if (g.fam === "queda") { set("N", g.N); set("x", +(g.x * 100).toFixed(2)); } if (g.fam === "rsi") set("L", g.L); if (g.fam === "rompe") set("NR", g.N); if (g.fam === "panico") set("k", g.k); if (g.fam === "relogio") { set("hr", g.hr); set("dw", g.dw); }
+}
+function cenariosHtml(d) {
+  const L = d.cenarios || []; if (!L.length) { $("cenarios").innerHTML = ""; return; }
+  $("cenarios").innerHTML = `<div class="card resumo"><h2>🏁 Cenários que a investigação achou (clique para abrir ou simular)</h2>
+    <p class="dica" style="margin-top:0">Resultado em ${(L[0].dias / 365).toFixed(1).replace(".", ",")} anos de histórico. A meta era +1,00% por dia. Lembre: foram escolhidos olhando o passado.</p>
+    ${L.map((c, i) => `<div style="border:1px solid var(--borda);border-radius:10px;padding:12px;margin:8px 0"><div class="dica">${c.tipo}</div><b style="font-size:16px">${c.nome}</b>
+      <div style="margin:6px 0">US$ 1.000 → <b class="${cls(c.final - 1)}">US$ ${(1000 * c.final).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</b> · média <b class="${cls(c.porDia)}">${pct(c.porDia, 2)} por dia</b> · bateu 30% em 30 dias em <b>${(c.janelas.pMeta * 100).toFixed(0)}%</b> das janelas, lucro em <b>${(c.janelas.pPos * 100).toFixed(0)}%</b> · 2024 em diante: lucro em <b>${(c.janP.pPos * 100).toFixed(0)}%</b> · maior queda <span class="neg">${pct(c.maxQueda, 0)}</span></div>
+      <div class="dica">${c.desc}</div><div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button onclick="abrirCenario(${i})">🧪 Ver no Explorador</button><button class="grande" style="font-size:14px;padding:9px 14px" onclick="simularCenario(${i})">▶ Simular em tempo real</button></div></div>`).join("")}</div>`;
+  window.CEN = L;
+}
+function abrirCenario(i) { const c = CEN[i]; setRegra(c.g, c.fracPct); aba("exp"); testar(); window.scrollTo(0, 0); }
+async function simularCenario(i) {
+  const c = CEN[i], v = prompt("Quanto você quer simular, em US$? (dinheiro de mentira)", "1000"); if (!v) return;
+  const r = await (await fetch("/sim/iniciar", { method: "POST", body: JSON.stringify({ valor: +v, g: c.g, frac: c.fracPct }) })).json();
+  if (r.erro) { alert(r.erro); return; } setRegra(c.g, c.fracPct); ULT = { g: c.g, frac: c.fracPct, desc: c.desc }; $("sim-regra").value = c.nome; aba("sim");
+}
 function lerRegra() {
   const v = (k) => $("f-" + k).value, fam = v("fam"), g = { fam, H: +v("H"), s: +v("s") / 100, tp: +v("tp") / 100, f: +v("f") };
   if (fam === "queda") { g.N = +v("N"); g.x = +v("x") / 100; } if (fam === "rsi") g.L = +v("L"); if (fam === "rompe") g.N = +v("NR"); if (fam === "panico") g.k = +v("k"); if (fam === "relogio") { g.hr = +v("hr"); g.dw = +v("dw"); }
