@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigador do Passado</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230e1013'/%3E%3Ccircle cx='28' cy='28' r='14' fill='none' stroke='%23ffc857' stroke-width='6'/%3E%3Cpath d='M39 39L53 53' stroke='%23ffc857' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root { --bg:#0e1013; --card:#171a1f; --borda:#262a31; --texto:#e8eaed; --fraco:#8b919a; --verde:#3ddc84; --vermelho:#ff5c5c; --amarelo:#ffc857; --azul:#6cb6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--texto); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .wrap { max-width:1100px; margin:0 auto; padding:20px 16px 60px; }
+  h1 { font-size:22px; margin:0; }
+  .topo { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .pill { padding:6px 12px; border-radius:999px; font-weight:600; font-size:13px; background:rgba(255,200,87,.15); color:var(--amarelo); }
+  .card { background:var(--card); border:1px solid var(--borda); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .card h2 { font-size:14px; text-transform:uppercase; letter-spacing:.04em; color:var(--fraco); margin:0 0 12px; }
+  button { cursor:pointer; border:0; border-radius:8px; padding:9px 14px; font-weight:600; font-size:14px; background:#2a2e35; color:var(--texto); }
+  button.grande { background:var(--amarelo); color:#221800; font-size:16px; padding:12px 20px; }
+  button:disabled { opacity:.5; cursor:default; }
+  .pos { color:var(--verde); } .neg { color:var(--vermelho); } .neu { color:var(--fraco); }
+  .dica { font-size:12px; color:var(--fraco); }
+  .barra { height:14px; background:#0f1115; border:1px solid var(--borda); border-radius:99px; overflow:hidden; margin:10px 0 6px; }
+  .barra > div { height:100%; background:var(--amarelo); width:0; transition:width .4s; }
+  .resumo { border-color:rgba(108,182,255,.45); } .resumo p { margin:6px 0; font-size:16px; }
+  .alerta { border-color:rgba(255,200,87,.5); background:rgba(255,200,87,.06); }
+  table { width:100%; border-collapse:collapse; font-size:13px; } th { text-align:left; color:var(--fraco); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--borda); } td { padding:8px; border-bottom:1px solid var(--borda); vertical-align:top; }
+  th.n, td.n { text-align:right; white-space:nowrap; } tr.lk { cursor:pointer; } tr.lk:hover td { background:#1c2026; }
+  canvas { width:100%; height:260px; display:block; background:#0f1115; border-radius:8px; }
+  .anos { display:flex; gap:6px; align-items:flex-end; height:100px; margin:10px 0 4px; }
+  .anos div.col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; font-size:11px; color:var(--fraco); }
+  .anos .b { width:70%; min-height:2px; border-radius:3px 3px 0 0; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; } @media (max-width:800px){ .grid2 { grid-template-columns:1fr; } }
+  .abas { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:14px; } .abas button.on { background:var(--azul); color:#06121f; }
+  .form { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; } .form label { font-size:12px; color:var(--fraco); display:flex; flex-direction:column; gap:4px; }
+  .form input, .form select { background:#0f1115; color:var(--texto); border:1px solid var(--borda); border-radius:8px; padding:8px; font-size:14px; }
+  #reiniciando { position:fixed; inset:0; background:rgba(0,0,0,.75); display:none; align-items:center; justify-content:center; z-index:99; text-align:center; font-size:18px; }
+</style>
+</head>
+<body>
+<div id="reiniciando"><div>🔄 Atualizando o programa…<br><small style="color:#8b919a">a página recarrega sozinha</small></div></div>
+<div class="wrap">
+  <div class="topo"><h1>🔎 Investigador do Passado</h1>
+    <div style="display:flex;gap:8px;align-items:center"><button onclick="atualizarPrograma()" title="Fecha e abre de novo, com a versão mais nova">🔄 Atualizar</button><span class="pill">MODO DE MENTIRA · nenhum dinheiro real</span></div></div>
+
+  <div class="abas"><button id="t-inv" class="on" onclick="aba('inv')">🔎 Investigar</button><button id="t-exp" onclick="aba('exp')">🧪 Explorador</button><button id="t-sim" onclick="aba('sim')">▶ Simulação ao vivo</button><span class="dica" id="ver"></span></div>
+  <div id="aba-inv">
+  <div class="card">
+    <p style="margin:0 0 10px">Este robô <b>não opera</b>. Ele baixa <b>6 anos de história</b> (hora a hora, desde 2020, pegando a pandemia) de 9 moedas e testa <b>milhares de regras de operação curta</b>, de 1 hora a 3 dias, já descontando a taxa de 0,3% por operação. Depois ele separa o que <b>só deu certo por sorte</b> do que <b>continuou dando certo</b>.</p>
+    <button class="grande" id="go" onclick="iniciar()">▶ Começar a investigar</button>
+    <span class="dica" id="quando" style="margin-left:10px"></span>
+    <div id="prog" style="display:none"><div class="barra"><div id="pb"></div></div><div id="pt" class="dica"></div></div>
+  </div>
+  <div id="res"></div>
+  </div>
+
+  <div id="aba-exp" style="display:none">
+    <div class="card"><p style="margin:0 0 10px">Aqui você <b>monta uma regra</b> mexendo nas variáveis e vê, mês a mês desde 2020, quanto ela teria rendido. Primeiro rode a aba <b>Investigar</b> uma vez para baixar o histórico.</p>
+      <div class="form" id="form"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="grande" onclick="testar()">🧪 Testar esta regra</button><span class="dica" id="exp-st"></span></div></div>
+    <div id="exp-res"></div>
+  </div>
+
+  <div id="aba-sim" style="display:none">
+    <div class="card"><p style="margin:0 0 10px">Simulação <b>em tempo real com dinheiro de mentira</b>: usa os preços de agora da Binance e a regra montada no Explorador. Nenhum dinheiro real é usado.</p>
+      <div class="form"><label>Quanto investir (US$)<input id="sim-valor" type="number" value="1000" min="10"></label><label>Regra<input id="sim-regra" disabled value="(monte uma regra no Explorador)"></label></div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="grande" onclick="simIniciar()">▶ Começar a simular</button><button onclick="simParar()">⏸ Parar</button><button onclick="simZerar()">🗑 Zerar</button></div></div>
+    <div id="sim-res"></div>
+  </div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const pct = (v, d = 1) => (v >= 0 ? "+" : "−") + Math.abs(v * 100).toFixed(d).replace(".", ",") + "%";
+const cls = (v) => (v > 0.0005 ? "pos" : v < -0.0005 ? "neg" : "neu");
+const NOMES = { queda: "Comprar a queda", rsi: "Comprar o esgotamento", rompe: "Comprar o rompimento", panico: "Comprar o pânico", relogio: "Horário do dia" };
+async function esperarVoltar() {
+  $("reiniciando").style.display = "flex";
+  setTimeout(function espera() { fetch("/", { cache: "no-store" }).then((x) => x.ok ? location.reload() : setTimeout(espera, 1000)).catch(() => setTimeout(espera, 1000)); }, 2500);
+}
+async function atualizarPrograma() {
+  if (!confirm("Atualizar? Ele busca a versão mais nova na internet e, se precisar, fecha e abre de novo sozinho.")) return;
+  let r = {}; try { r = await (await fetch("/atualizar", { method: "POST" })).json(); } catch (e) { r = { erro: "Não consegui falar com o programa." }; }
+  if (r.erro) { alert(r.erro); return; }
+  if (!r.mudou) { alert("Você já está na versão mais nova (" + r.versao + ")."); return; }
+  if (!r.precisaReiniciar) { location.reload(); return; }
+  let q = {}; try { q = await (await fetch("/reiniciar", { method: "POST" })).json(); } catch (e) {}
+  if (q.erro) { alert(q.erro); return; }
+  esperarVoltar();
+}
+async function iniciar() { $("go").disabled = true; await fetch("/iniciar", { method: "POST" }); acompanhar(); }
+async function acompanhar() {
+  const s = await (await fetch("/status")).json();
+  $("prog").style.display = s.fase === "parado" ? "none" : "block"; $("pb").style.width = s.pct + "%"; $("pt").textContent = s.texto;
+  if (s.rodando) { $("go").disabled = true; setTimeout(acompanhar, 1500); } else { $("go").disabled = false; if (s.fase !== "parado") $("go").textContent = "▶ Investigar de novo"; if (s.fase === "pronto") carregar(); }
+}
+function curvaSvg(id, c) {
+  const cv = $(id), w = cv.width = cv.clientWidth * 2, h = cv.height = 520, g = cv.getContext("2d");
+  const a = c.pts, b = c.bh; if (!a.length) return;
+  const t0 = Math.min(a[0][0], b.length ? b[0][0] : a[0][0]), t1 = Math.max(a[a.length - 1][0], b.length ? b[b.length - 1][0] : 0);
+  const vals = a.map((p) => p[1]).concat(b.map((p) => p[1])), mn = Math.min(...vals, 1) * 0.9, mx = Math.max(...vals) * 1.1, L = Math.log;
+  const X = (t) => 60 + ((t - t0) / (t1 - t0)) * (w - 80), Y = (v) => h - 40 - ((L(v) - L(mn)) / (L(mx) - L(mn))) * (h - 70);
+  g.fillStyle = "#8b919a"; g.font = "22px system-ui"; g.strokeStyle = "#262a31"; g.lineWidth = 1;
+  for (const v of [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64]) if (v > mn && v < mx) { g.beginPath(); g.moveTo(60, Y(v)); g.lineTo(w - 20, Y(v)); g.stroke(); g.fillText(v + "×", 8, Y(v) + 7); }
+  for (let y = 2020; y <= 2026; y++) { const t = Date.UTC(y, 0, 1); if (t > t0 && t < t1) { g.fillText(y, X(t) - 20, h - 12); g.beginPath(); g.moveTo(X(t), 10); g.lineTo(X(t), h - 40); g.stroke(); } }
+  const lin = (p, cor) => { g.strokeStyle = cor; g.lineWidth = 3; g.beginPath(); p.forEach((q, i) => (i ? g.lineTo(X(q[0]), Y(q[1])) : g.moveTo(X(q[0]), Y(q[1])))); g.stroke(); };
+  lin(b, "#8b919a"); lin(a, "#ffc857");
+  const tc = Date.UTC(2024, 0, 1); g.strokeStyle = "#6cb6ff"; g.setLineDash([8, 8]); g.beginPath(); g.moveTo(X(tc), 10); g.lineTo(X(tc), h - 40); g.stroke(); g.setLineDash([]); g.fillStyle = "#6cb6ff"; g.fillText("← treino | prova →", X(tc) - 110, 28);
+}
+function anosHtml(r) {
+  const mx = Math.max(0.05, ...r.anos.map((a) => (a ? Math.abs(a.ret) : 0)));
+  return `<div class="anos">${r.anos.map((a, i) => (i > 6 ? "" : `<div class="col" title="${2020 + i}: ${a ? a.ops + " operações" : "sem"}">${a ? `<span class="${cls(a.ret)}">${pct(a.ret, 0)}</span><div class="b" style="height:${Math.max(2, (Math.abs(a.ret) / mx) * 60)}px;background:${a.ret >= 0 ? "var(--verde)" : "var(--vermelho)"}"></div>` : ""}<span>${2020 + i}</span></div>`)).join("")}</div>`;
+}
+function detalhe(r) {
+  return `<p style="margin:0 0 6px"><b>${r.desc}</b></p>
+  <p class="dica" style="margin:0 0 8px">Soma dos ganhos de cada ano (% do dinheiro de cada moeda, já com taxa), somando todas as moedas e dividindo pelo número de moedas.</p>${anosHtml(r)}
+  <div class="grid2" style="margin-top:8px"><div><div class="dica">Treino (2020–2023)</div><b class="${cls(r.treino)}">${pct(r.treino)} ao ano</b></div><div><div class="dica">Prova (2024 até hoje): dados que não foram usados para escolher</div><b class="${cls(r.prova)}">${pct(r.prova)} ao ano</b></div></div>
+  <p class="dica">Faz cerca de ${r.opsMedia.toFixed(0)} operações por ano (somando as moedas).${r.maxQueda != null ? ` Maior queda da carteira no caminho: <b class="neg">${pct(r.maxQueda, 0)}</b>.` : ""}</p>`;
+}
+let D = null;
+function selecionar(i) { const r = D.honestos[i]; $("selHtml").innerHTML = detalhe(r); }
+function blocosHtml(b) {
+  const mx = Math.max(0.1, ...b.map((x) => Math.abs(x[1])));
+  return `<div style="display:flex;gap:2px;align-items:center;height:90px;margin:8px 0 2px">${b.map((x) => `<div title="${new Date(x[0]).toLocaleDateString("pt-BR")}: ${pct(x[1], 0)} em 30 dias" style="flex:1;display:flex;flex-direction:column;justify-content:center;height:100%"><div style="height:${Math.max(1, (Math.abs(x[1]) / mx) * 42)}px;background:${x[1] >= 0.3 ? "var(--verde)" : x[1] >= 0 ? "#2f8f5b" : "var(--vermelho)"};margin-top:${x[1] >= 0 ? "auto" : "0"};${x[1] >= 0 ? "margin-bottom:45px" : "margin-top:45px"}"></div></div>`).join("")}</div><div class="dica">Cada barrinha = um período de 30 dias seguidos desde 2020. Verde forte = bateu 1% por dia (30%). Verde fraco = lucro menor. Vermelho = prejuízo.</div>`;
+}
+function linhaMeta(r) { return `<tr><td>${NOMES[r.g.fam]}<div class="dica">${r.desc}</div></td><td class="n">${(r.j.pMeta * 100).toFixed(0)}%</td><td class="n">${(r.j.pPos * 100).toFixed(0)}%</td><td class="n ${cls(r.j.mean)}">${pct(r.j.mean, 2)}</td><td class="n ${cls(r.j.min)}">${pct(r.j.min, 0)}</td><td class="n ${cls(r.jP.mean)}">${pct(r.jP.pPos, 0).replace("+", "")}</td></tr>`; }
+function metaHtml(m) {
+  const cab = `<thead><tr><th>Regra</th><th class="n">Bateu 1%/dia em…</th><th class="n">Deu lucro em…</th><th class="n">Média por dia</th><th class="n">Pior 30 dias</th><th class="n">Lucro em 2024+</th></tr></thead>`;
+  return `<div class="card resumo"><h2>🎯 Meta: ganhar 1% por dia (30% a cada 30 dias)</h2>
+    <p>Medi <b>todas as janelas de 30 dias</b> possíveis nos 6 anos (uma começando a cada dia), para cada regra.</p>
+    <p>A regra que mais vezes bateu a meta bateu em <b>${(m.melhorPMeta * 100).toFixed(0)}%</b> das janelas. A que mais vezes deu lucro teve lucro em <b>${(m.melhorPPos * 100).toFixed(0)}%</b>. ${m.qtdSempre ? `<b>${m.qtdSempre}</b> regra(s) deram lucro em 100% das janelas.` : "<b>Nenhuma</b> regra deu lucro em todas as janelas de 30 dias."} ${m.qtdMeta50 ? `${m.qtdMeta50} bateram a meta em metade ou mais das janelas.` : "Nenhuma bateu a meta em metade das janelas."}</p>
+    <p class="dica">Coluna "Lucro em 2024+" = em quantos dos períodos de 30 dias dos últimos anos (que não foram usados para escolher) a regra teve lucro.</p></div>
+  <div class="card"><h2>As que mais bateram 1% por dia</h2><table>${cab}<tbody>${m.porMeta.map(linhaMeta).join("")}</tbody></table>${m.topMeta ? blocosHtml(m.topMeta.blocos) : ""}</div>
+  <div class="card"><h2>As mais constantes (lucro em mais períodos de 30 dias, treino e prova)</h2><table>${cab}<tbody>${m.consist.map(linhaMeta).join("")}</tbody></table>${m.topConsist ? blocosHtml(m.topConsist.blocos) : ""}</div>`;
+}
+function render(d) {
+  D = d; const e = d.estat, h = d.hindsight, t = d.honestoTop;
+  const pTreino = e.lucroTreino / e.comOps, pProva = e.lucroProva / e.comOps, pAmbos = e.lucroAmbos / e.comOps;
+  let html = `<div class="card resumo"><h2>O que a investigação achou</h2>
+    <p>Foram testadas <b>${e.total.toLocaleString("pt-BR")} regras</b> em ${d.pares.length} moedas.</p>
+    <p>Olhando só o passado distante (2020–2023), <b>${(pTreino * 100).toFixed(0)}%</b> delas deram lucro. Nos anos seguintes (2024 até hoje), só <b>${(pProva * 100).toFixed(0)}%</b>. E <b>${(pAmbos * 100).toFixed(0)}%</b> deram lucro nos dois períodos.</p>
+    <p>As 50 melhores do treino ganhavam em média <b class="${cls(e.top50Treino)}">${pct(e.top50Treino)} ao ano</b>. Na prova, as mesmas ganharam <b class="${cls(e.top50Prova)}">${pct(e.top50Prova)} ao ano</b>; só <b>${e.top50Sobrevivem} das 50</b> continuaram no lucro.</p>
+    <p class="dica">Isso mostra quanto da "mágica" do passado é só acaso: quando se testa muita coisa, sempre aparece algo que parece genial e some depois.</p></div>`;
+  if (d.meta30) html += metaHtml(d.meta30);
+  if (h) html += `<div class="card alerta"><h2>⚠ O melhor resultado imaginável olhando o passado todo</h2>
+    <p class="dica" style="margin-top:0">Foi isso que você pediu: a regra que teria ganhado mais nos 6 anos. Mas ela foi <b>escolhida depois de ver as respostas</b>, então é a mais propensa a ser sorte. Não é promessa de futuro.</p>
+    ${detalhe(h)}<canvas id="c1"></canvas><div class="dica">Linha amarela = a regra (carteira dividida igual entre as moedas, escala em ×). Linha cinza = só segurar as mesmas moedas.</div></div>`;
+  html += `<div class="card"><h2>✅ As que sobreviveram: lucro no treino E na prova</h2>`;
+  if (!d.honestos.length) html += `<p>Nenhuma regra deu lucro nos dois períodos ao mesmo tempo. Resultado honesto: com taxa de 0,3%, esses padrões simples não se sustentaram.</p>`;
+  else html += `<p class="dica" style="margin-top:0">Ordenadas pela pior das duas notas (treino e prova). Clique numa linha para ver os detalhes.</p>
+    <table><thead><tr><th>Regra</th><th class="n">Treino/ano</th><th class="n">Prova/ano</th><th class="n">Oper./ano</th></tr></thead><tbody>${d.honestos.map((r, i) => `<tr class="lk" onclick="selecionar(${i})"><td>${NOMES[r.g.fam]}<div class="dica">${r.desc}</div></td><td class="n ${cls(r.treino)}">${pct(r.treino)}</td><td class="n ${cls(r.prova)}">${pct(r.prova)}</td><td class="n">${r.opsMedia.toFixed(0)}</td></tr>`).join("")}</tbody></table>
+    <div id="selHtml" style="margin-top:14px"></div>`;
+  html += `</div>`;
+  if (t) html += `<div class="card"><h2>A melhor sobrevivente, na carteira</h2><p><b>${t.desc}</b></p><canvas id="c2"></canvas><div class="dica">Amarelo = a regra; cinza = só segurar as mesmas moedas. Linha azul pontilhada = onde começa a prova. Maior queda: ${pct(t.maxQueda, 0)}.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${t.porPar.map((p) => `<span style="background:#0f1115;border:1px solid var(--borda);border-radius:8px;padding:4px 8px;font-size:12px">${p.par}: <span class="${cls(p.treino)}">${pct(p.treino, 0)}</span> → <span class="${cls(p.prova)}">${pct(p.prova, 0)}</span></span>`).join("")}</div><div class="dica">Por moeda, ao ano: treino → prova.</div></div>`;
+  html += `<div class="card"><h2>Que tipo de regra funciona melhor?</h2><table><thead><tr><th>Tipo</th><th class="n">Regras</th><th class="n">Treino/ano (média)</th><th class="n">Prova/ano (média)</th><th class="n">Lucro nos dois</th></tr></thead><tbody>${d.porFamilia.map((f) => `<tr><td>${NOMES[f.fam]}</td><td class="n">${f.n}</td><td class="n ${cls(f.treino)}">${pct(f.treino)}</td><td class="n ${cls(f.prova)}">${pct(f.prova)}</td><td class="n">${f.ambos}</td></tr>`).join("")}</tbody></table></div>
+  <div class="card"><h2>Só segurar as moedas (para comparar)</h2><div class="anos">${d.segurar.slice(0, 7).map((v, i) => `<div class="col"><span class="${cls(v)}">${pct(v, 0)}</span><div class="b" style="height:${Math.max(2, Math.min(60, Math.abs(v) * 30))}px;background:${v >= 0 ? "var(--verde)" : "var(--vermelho)"}"></div><span>${2020 + i}</span></div>`).join("")}</div><div class="dica">Média das moedas, ano a ano (o último ano é parcial).</div></div>`;
+  $("res").innerHTML = html;
+  $("quando").textContent = "Última investigação: " + new Date(d.quando).toLocaleString("pt-BR");
+  if (h) curvaSvg("c1", h); if (t) curvaSvg("c2", t);
+  if (d.honestos.length) selecionar(0);
+}
+async function carregar() { const d = await (await fetch("/resultado")).json(); if (!d.vazio) render(d); }
+function aba(x) { for (const a of ["inv", "exp", "sim"]) { $("aba-" + a).style.display = a === x ? "block" : "none"; $("t-" + a).className = a === x ? "on" : ""; } if (x === "sim") simAtualizar(); }
+fetch("/versao").then((r) => r.json()).then((v) => ($("ver").textContent = "versão " + v.versao)).catch(() => {});
+// ---------- explorador ----------
+const CAMPOS = {
+  fam: ["Tipo de regra", "select", [["queda", "Comprar a queda"], ["rsi", "Comprar o esgotamento (RSI)"], ["rompe", "Comprar o rompimento"], ["panico", "Comprar o pânico"], ["relogio", "Horário do dia"]], "queda"],
+  N: ["Olhar quantas horas para trás", "select", [[1, "1 h"], [2, "2 h"], [3, "3 h"], [6, "6 h"], [12, "12 h"], [24, "1 dia"], [48, "2 dias"], [72, "3 dias"]], 24, ["queda"]],
+  NR: ["Máxima dos últimos…", "select", [[24, "24 horas"], [48, "48 horas"], [168, "7 dias"], [336, "14 dias"]], 168, ["rompe"]],
+  x: ["Queda mínima (%)", "number", null, 4, ["queda"]],
+  L: ["RSI abaixo de", "number", null, 25, ["rsi"]],
+  k: ["Vela maior que o normal em (×)", "number", null, 4, ["panico"]],
+  hr: ["Hora (Londres, 0–23)", "number", null, 12, ["relogio"]],
+  dw: ["Dia da semana", "select", [[-1, "Todos"], [0, "Domingo"], [1, "Segunda"], [2, "Terça"], [3, "Quarta"], [4, "Quinta"], [5, "Sexta"], [6, "Sábado"]], -1, ["relogio"]],
+  H: ["Ficar no máximo (horas)", "number", null, 24],
+  tp: ["Vender se ganhar (%) — 0 = sem alvo", "number", null, 3, ["queda", "rsi", "rompe", "panico"]],
+  s: ["Vender se perder (%) — 0 = sem stop", "number", null, 3, ["queda", "rsi", "rompe", "panico"]],
+  f: ["Só se estiver acima da média do mês", "select", [[0, "Não"], [1, "Sim"]], 0, ["queda", "rsi", "rompe", "panico"]],
+  frac: ["% do dinheiro por operação", "select", [[100, "100% (tudo, uma por vez)"], [50, "50% (2 ao mesmo tempo)"], [25, "25% (até 4)"], [10, "10% (até 10)"]], 100],
+};
+function montarForm() {
+  $("form").innerHTML = Object.entries(CAMPOS).map(([k, c]) => `<label data-so="${(c[4] || []).join(",")}">${c[0]}${c[1] === "select" ? `<select id="f-${k}" onchange="${k === "fam" ? "mostrar()" : ""}">${c[2].map((o) => `<option value="${o[0]}" ${o[0] == c[3] ? "selected" : ""}>${o[1]}</option>`).join("")}</select>` : `<input id="f-${k}" type="number" step="any" value="${c[3]}">`}</label>`).join("");
+  mostrar();
+}
+function mostrar() { const fam = $("f-fam").value; document.querySelectorAll("#form label[data-so]").forEach((l) => { const so = l.dataset.so; l.style.display = !so || so.split(",").includes(fam) ? "" : "none"; }); }
+function lerRegra() {
+  const v = (k) => $("f-" + k).value, fam = v("fam"), g = { fam, H: +v("H"), s: +v("s") / 100, tp: +v("tp") / 100, f: +v("f") };
+  if (fam === "queda") { g.N = +v("N"); g.x = +v("x") / 100; } if (fam === "rsi") g.L = +v("L"); if (fam === "rompe") g.N = +v("NR"); if (fam === "panico") g.k = +v("k"); if (fam === "relogio") { g.hr = +v("hr"); g.dw = +v("dw"); }
+  return { g, frac: +v("frac") };
+}
+let ULT = null;
+async function testar() {
+  $("exp-st").textContent = "Calculando…"; const body = lerRegra();
+  const r = await (await fetch("/testar", { method: "POST", body: JSON.stringify(body) })).json();
+  if (r.erro) { $("exp-st").textContent = r.erro; return; }
+  $("exp-st").textContent = ""; ULT = { ...body, desc: r.desc }; $("sim-regra").value = r.desc.slice(0, 90);
+  const j = r.janelas, mult = r.final;
+  $("exp-res").innerHTML = `<div class="card resumo"><h2>Resultado em ${(r.dias / 365).toFixed(1).replace(".", ",")} anos</h2>
+    <p><b>${r.desc}</b></p>
+    <p>US$ 1.000 viraria <b class="${cls(mult - 1)}">US$ ${(1000 * mult).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</b> (${mult.toFixed(2).replace(".", ",")}×), ou seja, uma média de <b class="${cls(r.porDia)}">${pct(r.porDia, 2)} por dia</b>. A meta é +1,00% por dia.</p>
+    <p>Em janelas de 30 dias: bateu a meta de 30% em <b>${(j.pMeta * 100).toFixed(0)}%</b> delas e teve lucro em <b>${(j.pPos * 100).toFixed(0)}%</b>. Mediana: <b class="${cls(j.med)}">${pct(j.med, 0)}</b> a cada 30 dias. Pior: <b class="neg">${pct(j.min, 0)}</b>. Melhor: <b class="pos">${pct(j.max, 0)}</b>.</p>
+    <p>No período de prova (2024 em diante), teve lucro em <b>${(r.janP.pPos * 100).toFixed(0)}%</b> das janelas e bateu a meta em <b>${(r.janP.pMeta * 100).toFixed(0)}%</b>. Operações: ${r.ops} (acertou ${(r.acerto * 100).toFixed(0)}%). Maior queda no caminho: <b class="neg">${pct(r.maxQueda, 0)}</b>.</p></div>
+    <div class="card"><h2>Mês a mês (blocos de 30 dias)</h2>${blocosHtml(r.blocos)}</div>
+    <div class="card"><h2>Evolução do dinheiro (escala em ×)</h2><canvas id="c3"></canvas><div class="dica">Amarelo = a regra; cinza = só segurar as moedas.</div>
+      <div class="anos" style="margin-top:12px">${r.anos.map((a, i) => `<div class="col"><span class="${cls(a)}">${pct(a, 0)}</span><div class="b" style="height:${Math.max(2, Math.min(60, Math.abs(a) * 30))}px;background:${a >= 0 ? "var(--verde)" : "var(--vermelho)"}"></div><span>${2020 + i}</span></div>`).join("")}</div></div>`;
+  curvaSvg("c3", r);
+}
+// ---------- simulação ----------
+async function simIniciar() {
+  if (!ULT) { alert("Primeiro monte e teste uma regra na aba Explorador."); return; }
+  const valor = +$("sim-valor").value;
+  const r = await (await fetch("/sim/iniciar", { method: "POST", body: JSON.stringify({ valor, g: ULT.g, frac: ULT.frac }) })).json();
+  if (r.erro) { alert(r.erro); return; } simAtualizar();
+}
+async function simParar() { await fetch("/sim/parar", { method: "POST" }); simAtualizar(); }
+async function simZerar() { if (!confirm("Apagar a simulação atual e o histórico dela?")) return; await fetch("/sim/zerar", { method: "POST" }); simAtualizar(); }
+async function simAtualizar() {
+  const s = await (await fetch("/sim/estado")).json();
+  if (s.vazio) { $("sim-res").innerHTML = ""; return; }
+  const hora = (t) => new Date(t).toLocaleString("pt-BR");
+  $("sim-res").innerHTML = `<div class="card resumo"><h2>${s.ativo ? "🟢 Rodando agora" : "⏸ Parada"}${s.erro ? " · ⚠ " + s.erro : ""}</h2>
+    <p><b>${s.desc}</b></p>
+    <p>Começou com <b>US$ ${s.valor0.toLocaleString("pt-BR")}</b> em ${hora(s.inicio)}. Agora tem <b class="${cls(s.retorno)}">US$ ${s.valorAtual.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</b> (${pct(s.retorno, 2)}), ${s.diasRodando >= 1 ? `média de <b class="${cls(s.porDia)}">${pct(s.porDia, 2)} por dia</b> em ${s.diasRodando.toFixed(1).replace(".", ",")} dias.` : "rodando há menos de 1 dia; a média por dia aparece depois do primeiro dia."} Só segurar as moedas teria dado ${pct(s.segurar, 2)}.</p>
+    <p class="dica">${s.nOps} operações fechadas, ${s.nOps ? ((s.nWin / s.nOps) * 100).toFixed(0) : 0}% de acerto. Última leitura: ${s.ultimo ? hora(s.ultimo) : "ainda não"}. Cada operação já desconta a taxa de 0,15% na entrada e na saída.</p></div>
+    <div class="card"><h2>Posições abertas (${s.abertasVivas.length})</h2>${s.abertasVivas.length ? `<table><thead><tr><th>Moeda</th><th class="n">Entrada</th><th class="n">Agora</th><th class="n">Resultado</th></tr></thead><tbody>${s.abertasVivas.map((p) => `<tr><td>${p.par} <span class="dica">desde ${hora(p.quando)}</span></td><td class="n">${p.entrada}</td><td class="n">${p.atual}</td><td class="n ${cls(p.ret)}">${pct(p.ret, 2)}</td></tr>`).join("")}</tbody></table>` : '<p class="dica">Nenhuma posição agora. Ele espera a regra mandar comprar.</p>'}</div>
+    <div class="card"><h2>Últimas operações</h2>${s.hist.length ? `<table><thead><tr><th>Moeda</th><th>Quando saiu</th><th>Motivo</th><th class="n">Resultado</th><th class="n">Lucro (US$)</th></tr></thead><tbody>${s.hist.slice(0, 30).map((h) => `<tr><td>${h.par}</td><td>${hora(h.quando)}</td><td>${h.motivo}</td><td class="n ${cls(h.ret)}">${pct(h.ret, 2)}</td><td class="n ${cls(h.lucro)}">${h.lucro.toFixed(2)}</td></tr>`).join("")}</tbody></table>` : '<p class="dica">Ainda sem operações fechadas.</p>'}</div>`;
+}
+setInterval(() => { if ($("aba-sim").style.display !== "none") simAtualizar(); }, 15000);
+montarForm(); carregar(); acompanhar();
+</script>
+</body>
+</html>
